@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ek Awaaz · One Voice</title>
+<meta name="description" content="Speak your language. They hear theirs, in your own voice. Powered by Sarvam AI.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗣️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Noto+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --saffron: #ff7a1a; --saffron-soft: #fff3ea; --saffron-line: #ffd9bd;
+    --indigo: #4f46e5; --indigo-soft: #eef0ff; --indigo-line: #d4d6ff;
+    --ink: #1a1a2e; --muted: #6b7280; --line: #ececf3; --bg: #fbfaf8; --card: #fff;
+    --ok: #137a3f; --ok-soft: #e7f8ee; --err: #b42318;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Plus Jakarta Sans', 'Noto Sans', system-ui, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  .hero { text-align: center; padding: 30px 16px 24px; border-radius: 24px; border: 1px solid var(--line);
+    background: radial-gradient(circle at 12% 20%, #ffe2cc 0, transparent 45%),
+                radial-gradient(circle at 88% 80%, #dcdcff 0, transparent 45%), #fffdfb; }
+  .hero h1 { font-size: clamp(2rem, 6vw, 2.9rem); font-weight: 800; margin: 0; letter-spacing: -1px; }
+  .grad { background: linear-gradient(90deg, var(--saffron), var(--indigo));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: var(--muted); font-size: 1.08rem; margin: 8px 0 16px; }
+  .chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .chip { font-size: .78rem; padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
+
+  .people { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+  @media (max-width: 720px) { .people { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .card.a { border-top: 4px solid var(--saffron); }
+  .card.b { border-top: 4px solid var(--indigo); }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
+    color: #fff; font-weight: 800; font-size: 1.2rem; flex: none; }
+  .a .avatar { background: linear-gradient(135deg, #ff9a4d, var(--saffron)); }
+  .b .avatar { background: linear-gradient(135deg, #7c74ff, var(--indigo)); }
+  .who { font-weight: 800; }
+  .native { color: var(--muted); font-size: .92rem; font-family: 'Noto Sans', sans-serif; }
+  select { margin-left: auto; font: inherit; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); cursor: pointer; }
+  .pill { display: inline-block; font-size: .76rem; padding: 4px 11px; border-radius: 999px; margin: 14px 0 4px;
+    background: #f4f4f7; color: var(--muted); }
+  .pill.on { background: var(--ok-soft); color: var(--ok); }
+
+  .mic { width: 100%; margin-top: 12px; border: 0; border-radius: 18px; padding: 18px; font: inherit;
+    font-weight: 700; font-size: 1.05rem; color: #fff; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 10px; transition: transform .1s, filter .2s; }
+  .a .mic { background: linear-gradient(135deg, #ff9a4d, var(--saffron)); }
+  .b .mic { background: linear-gradient(135deg, #7c74ff, var(--indigo)); }
+  .mic:hover { filter: brightness(1.05); } .mic:active { transform: scale(.98); }
+  .mic:disabled { opacity: .45; cursor: not-allowed; }
+  .mic.rec { background: #e11d48 !important; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(225,29,72,.45); } 50% { box-shadow: 0 0 0 12px rgba(225,29,72,0); } }
+
+  .status { margin-top: 18px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; display: none; }
+  .status.show { display: block; }
+  .steps { display: flex; gap: 10px; flex-wrap: wrap; }
+  .step { font-size: .86rem; padding: 6px 12px; border-radius: 999px; background: #f4f4f7; color: var(--muted); }
+  .step.active { background: var(--saffron-soft); color: #b45309; animation: blink 1s infinite; }
+  .step.done { background: var(--ok-soft); color: var(--ok); }
+  @keyframes blink { 50% { opacity: .55; } }
+  .status .msg { margin-top: 8px; font-size: .88rem; color: var(--muted); }
+  .status .msg.err { color: var(--err); }
+
+  .now { border-radius: 22px; padding: 22px 26px; margin-top: 18px; color: #fff; display: none;
+    background: linear-gradient(120deg, var(--saffron), #e0458f 50%, var(--indigo)); }
+  .now.show { display: block; }
+  .now .label { font-size: .76rem; opacity: .88; text-transform: uppercase; letter-spacing: 1px; }
+  .now .text { font-size: clamp(1.3rem, 4vw, 1.7rem); font-weight: 600; line-height: 1.35; margin: 8px 0;
+    font-family: 'Noto Sans', sans-serif; }
+  .now .orig { font-size: .92rem; opacity: .88; }
+  .replay { margin-top: 12px; background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.4);
+    border-radius: 999px; padding: 7px 16px; font: inherit; cursor: pointer; }
+
+  h3 { margin: 28px 0 8px; }
+  .row { display: flex; margin: 10px 0; } .row.b { justify-content: flex-end; }
+  .bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--line); }
+  .row.a .bubble { background: var(--saffron-soft); border-color: var(--saffron-line); border-top-left-radius: 4px; }
+  .row.b .bubble { background: var(--indigo-soft); border-color: var(--indigo-line); border-top-right-radius: 4px; }
+  .bubble .o { font-size: .85rem; color: var(--muted); font-family: 'Noto Sans', sans-serif; }
+  .bubble .t { font-size: 1.1rem; margin-top: 4px; font-family: 'Noto Sans', sans-serif; }
+  .bubble .m { font-size: .72rem; color: var(--muted); margin-top: 6px; display: flex; gap: 10px; align-items: center; }
+  .bubble button { border: 0; background: none; cursor: pointer; font-size: .9rem; padding: 0; }
+  .empty { text-align: center; color: var(--muted); padding: 26px; border: 2px dashed var(--line); border-radius: 18px; margin-top: 18px; }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 13px; font: inherit;
+    font-weight: 600; cursor: pointer; color: var(--ink); }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  .summary { margin-top: 14px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px;
+    font-family: 'Noto Sans', sans-serif; line-height: 1.6; display: none; }
+  .summary.show { display: block; }
+  .foot { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 34px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1><span class="grad">एक आवाज़</span> · Ek Awaaz</h1>
+    <p>Speak your language. They hear theirs, <b>in your own voice.</b></p>
+    <div class="chips">
+      <span class="chip">🎧 Saaras v3 · speech-to-text</span>
+      <span class="chip">🧠 Sarvam-105B · context-aware interpreting</span>
+      <span class="chip">🧬 Voice Cloning · cross-lingual</span>
+      <span class="chip">🌏 12 Indian languages</span>
+    </div>
+  </section>
+
+  <section class="people" id="people"></section>
+
+  <section class="status" id="status">
+    <div class="steps">
+      <span class="step" data-step="stt">🎧 Listening</span>
+      <span class="step" data-step="translate">🧠 Interpreting</span>
+      <span class="step" data-step="voice">🧬 Cloning voice</span>
+    </div>
+    <div class="msg" id="statusMsg"></div>
+  </section>
+
+  <section class="now" id="now">
+    <div class="label" id="nowLabel"></div>
+    <div class="text" id="nowText"></div>
+    <div class="orig" id="nowOrig"></div>
+    <button class="replay" id="replay">▶ Play again</button>
+  </section>
+
+  <div class="empty" id="empty">👆 Pick a language for each person, tap the mic and speak.<br>
+    The other person hears it in their language, <b>in your voice</b>.</div>
+
+  <section id="convo" hidden>
+    <h3>Conversation</h3>
+    <div id="bubbles"></div>
+    <div class="actions">
+      <button class="btn primary" id="summarize">📝 Summarize in both languages</button>
+      <button class="btn" id="reset">🔄 New conversation</button>
+    </div>
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <div class="foot">Built with Sarvam AI · Saaras · Sarvam-105B · Voice Cloning · Bulbul</div>
+</main>
+
+<script>
+const LANGS = {
+  Hindi: "हिन्दी", Tamil: "தமிழ்", Telugu: "తెలుగు", Kannada: "ಕನ್ನಡ", Malayalam: "മലയാളം",
+  Bengali: "বাংলা", Marathi: "मराठी", Gujarati: "ગુજરાતી", Punjabi: "ਪੰਜਾਬੀ", Odia: "ଓଡ଼ିଆ",
+  Assamese: "অসমীয়া", English: "English",
+};
+const MAX_SECONDS = 30;
+const state = {
+  people: { A: { lang: "Hindi", voice: null }, B: { lang: "Tamil", voice: null } },
+  turns: [], busy: false, lastAudio: null, recorder: null,
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const other = (p) => (p === "A" ? "B" : "A");
+
+function renderPeople() {
+  $("people").innerHTML = ["A", "B"].map((p) => {
+    const { lang, voice } = state.people[p];
+    const options = Object.keys(LANGS).map((l) => `<option ${l === lang ? "selected" : ""}>${l}</option>`).join("");
+    return `<div class="card ${p.toLowerCase()}">
+      <div class="head"><div class="avatar">${p}</div>
+        <div><div class="who">Person ${p}</div><div class="native">speaks ${LANGS[lang]}</div></div>
+        <select data-p="${p}" aria-label="Person ${p} language">${options}</select></div>
+      <span class="pill ${voice ? "on" : ""}">${voice ? "🧬 Voice captured · replies sound like you"
+        : "Your first message becomes your voice (speak 5+ sec)"}</span>
+      <button class="mic" data-p="${p}" ${state.busy ? "disabled" : ""}>🎙️ Tap to speak ${lang}</button>
+    </div>`;
+  }).join("");
+  document.querySelectorAll("select").forEach((s) => s.onchange = () => {
+    state.people[s.dataset.p].lang = s.value; renderPeople();
+  });
+  document.querySelectorAll(".mic").forEach((b) => b.onclick = () => toggleRecording(b.dataset.p, b));
+}
+
+// ---------- Recording: mic -> 16 kHz mono WAV (accepted by every Sarvam audio API) ----------
+async function toggleRecording(p, btn) {
+  if (state.recorder) return state.recorder.stop();
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return showStatus("Microphone access was blocked. Allow it in the browser and try again.", true); }
+  const chunks = [];
+  const rec = new MediaRecorder(stream);
+  state.recorder = rec;
+  document.querySelectorAll(".mic").forEach((b) => { if (b !== btn) b.disabled = true; });
+  btn.classList.add("rec");
+  let secs = 0;
+  btn.textContent = "⏹ Recording… tap to send (0s)";
+  const timer = setInterval(() => {
+    secs++; btn.textContent = `⏹ Recording… tap to send (${secs}s)`;
+    if (secs >= MAX_SECONDS) rec.stop();
+  }, 1000);
+  rec.ondataavailable = (e) => chunks.push(e.data);
+  rec.onstop = async () => {
+    clearInterval(timer);
+    stream.getTracks().forEach((t) => t.stop());
+    state.recorder = null;
+    const wav = await toWav16k(new Blob(chunks, { type: rec.mimeType }));
+    sendTurn(p, wav);
+  };
+  rec.start();
+}
+
+async function toWav16k(blob) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+  ctx.close();
+  const data = buf.getChannelData(0);
+  const out = new DataView(new ArrayBuffer(44 + data.length * 2));
+  const w = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); out.setUint32(4, 36 + data.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, 16000, true); out.setUint32(28, 32000, true); out.setUint16(32, 2, true);
+  out.setUint16(34, 16, true); w(36, "data"); out.setUint32(40, data.length * 2, true);
+  for (let i = 0; i < data.length; i++) {
+    const v = Math.max(-1, Math.min(1, data[i]));
+    out.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  return { b64: bytesToB64(new Uint8Array(out.buffer)), seconds: buf.duration };
+}
+
+function bytesToB64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// ---------- One turn ----------
+async function sendTurn(p, wav) {
+  if (wav.seconds < 0.6) { renderPeople(); return showStatus("That was too short. Hold on a little longer.", true); }
+  const me = state.people[p], them = state.people[other(p)];
+  const firstClip = !me.voice;
+  if (firstClip) me.voice = wav.b64;
+  state.busy = true; renderPeople();
+  showSteps("stt");
+  const stepTimers = [setTimeout(() => showSteps("translate"), 900), setTimeout(() => showSteps("voice"), 1800)];
+  showStatus(`Person ${p}: ${me.lang} → ${them.lang}${firstClip ? " · capturing your voice" : ""}`);
+  try {
+    const res = await fetch("/api/turn", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ src: me.lang, tgt: them.lang, audio: wav.b64, ref: me.voice,
+        history: state.turns.map(({ who, src, original }) => ({ who, src, original })) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    if (data.empty) { if (firstClip) me.voice = null; throw new Error("Didn't catch that. Try again a little louder."); }
+    const t = data.timings;
+    state.turns.push({ who: p, src: me.lang, tgt: them.lang, original: data.original,
+      translated: data.translated, cloned: data.cloned, secs: t.total, audio: data.audio });
+    showSteps("done", t);
+    showStatus(`Done in ${t.total.toFixed(1)}s · ${data.cloned ? `spoken in Person ${p}'s voice` : "standard voice (clone unavailable)"}`);
+    renderTurns();
+    play(data.audio);
+  } catch (e) {
+    if (firstClip && me.voice === wav.b64 && !state.turns.some((x) => x.who === p)) me.voice = null;
+    showSteps(null);
+    showStatus(e.message, true);
+  } finally {
+    stepTimers.forEach(clearTimeout);
+    state.busy = false; renderPeople();
+  }
+}
+
+function showSteps(active, timings) {
+  const order = ["stt", "translate", "voice"];
+  const labels = { stt: "🎧 Heard", translate: "🧠 Interpreted", voice: "🧬 Voice" };
+  $("status").classList.add("show");
+  document.querySelectorAll(".step").forEach((el) => {
+    const k = el.dataset.step, i = order.indexOf(k);
+    el.className = "step";
+    if (active === "done") { el.classList.add("done"); el.textContent = `${labels[k]} ${timings[k].toFixed(1)}s`; }
+    else if (active && i < order.indexOf(active)) el.classList.add("done");
+    else if (k === active) el.classList.add("active");
+  });
+}
+
+function showStatus(msg, isErr = false) {
+  $("status").classList.add("show");
+  $("statusMsg").textContent = msg;
+  $("statusMsg").classList.toggle("err", isErr);
+}
+
+function play(b64) {
+  state.lastAudio = new Audio("data:audio/wav;base64," + b64);
+  state.lastAudio.play().catch(() => {});
+}
+
+function renderTurns() {
+  const has = state.turns.length > 0;
+  $("empty").hidden = has; $("convo").hidden = !has; $("now").classList.toggle("show", has);
+  if (!has) return;
+  const last = state.turns[state.turns.length - 1];
+  $("nowLabel").textContent = `Now speaking · ${last.tgt} · ${last.cloned ? `in Person ${last.who}'s voice` : "standard voice"}`;
+  $("nowText").textContent = last.translated;
+  $("nowOrig").textContent = `Person ${last.who} said in ${last.src}: ${last.original}`;
+  $("bubbles").innerHTML = state.turns.map((t, i) => ({ t, i })).reverse().map(({ t, i }) =>
+    `<div class="row ${t.who.toLowerCase()}"><div class="bubble">
+      <div class="o">Person ${t.who} · ${t.src}: ${esc(t.original)}</div>
+      <div class="t">${esc(t.translated)}</div>
+      <div class="m"><button data-i="${i}" title="Play">🔊</button>→ ${t.tgt} · ${t.cloned ? "🧬 cloned voice" : "🔈 standard voice"} · ${t.secs.toFixed(1)}s</div>
+    </div></div>`).join("");
+  document.querySelectorAll(".bubble button").forEach((b) => b.onclick = () => play(state.turns[b.dataset.i].audio));
+}
+
+$("replay").onclick = () => state.lastAudio && (state.lastAudio.currentTime = 0, state.lastAudio.play());
+
+$("summarize").onclick = async () => {
+  const btn = $("summarize");
+  btn.disabled = true; btn.textContent = "Sarvam-105B is summarizing…";
+  try {
+    const res = await fetch("/api/summary", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ turns: state.turns.map(({ who, original }) => ({ who, original })),
+        langA: state.people.A.lang, langB: state.people.B.lang }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    $("summary").innerHTML = "<b>📝 Conversation summary</b><br>" + mdLite(data.summary);
+  } catch (e) {
+    $("summary").textContent = "Couldn't summarize: " + e.message;
+  }
+  $("summary").classList.add("show");
+  btn.disabled = false; btn.textContent = "📝 Summarize in both languages";
+};
+
+function mdLite(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/^#+\s*(.+)$/gm, "<b>$1</b>")
+    .replace(/^\s*[-*•]\s+/gm, "• ")
+    .replace(/\n/g, "<br>");
+}
+
+$("reset").onclick = () => {
+  state.turns = []; state.lastAudio = null;
+  state.people.A.voice = state.people.B.voice = null;
+  $("status").classList.remove("show"); $("summary").classList.remove("show");
+  renderTurns(); renderPeople();
+};
+
+renderPeople();
+renderTurns();
+</script>
+</body>
+</html>

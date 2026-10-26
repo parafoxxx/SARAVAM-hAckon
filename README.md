@@ -15,16 +15,28 @@ A live two-way interpreter for people who don't share a language: a migrant work
 
 Supports 12 languages: Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese, English.
 
-## Run locally
+## Project layout
+
+| Path | What it is |
+|---|---|
+| `index.html` | Web frontend (Vercel). Records the mic in the browser and converts it to 16 kHz WAV |
+| `api/turn.py` | Serverless function: one turn (speech → text → translation → cloned speech) |
+| `api/summary.py` | Serverless function: bilingual conversation summary |
+| `api/_sarvam.py` | Shared Sarvam pipeline |
+| `app.py` | The same app as a Streamlit version (backup / local demo) |
+
+## Deploy on Vercel
+
+1. On vercel.com → **Add New → Project**, import this GitHub repo. Framework preset: **Other**, with no build command.
+2. Under **Environment Variables** add `SARVAM_API_KEY` = your key.
+3. Deploy. The HTTPS link works with the mic on phones too.
+
+## Run the Streamlit version locally
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt streamlit
 echo SARVAM_API_KEY=your_key_here > .env
 streamlit run app.py
 ```
 
-## Deploy (Streamlit Community Cloud)
-
-1. Push this repo to GitHub. `.env` is git-ignored, so the key stays out.
-2. On share.streamlit.io create an app from the repo, main file `app.py`.
-3. Under **Settings → Secrets** add: `SARVAM_API_KEY = "your_key_here"`.
+`.env` is git-ignored, so the key never reaches the repo.
