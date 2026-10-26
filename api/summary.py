@@ -12,7 +12,8 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             body = s.read_json(self)
-            summary = s.summarize(s.client(), body["turns"], body["langA"], body["langB"])
+            summary = s.summarize(s.client(), body["turns"], body["langA"], body["langB"],
+                                  body.get("scenario", "general"))
             s.send_json(self, 200, {"summary": summary})
         except Exception as e:
             s.send_json(self, 500, {"error": f"{type(e).__name__}: {e}"})

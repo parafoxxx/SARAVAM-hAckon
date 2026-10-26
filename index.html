@@ -13,7 +13,7 @@
     --saffron: #ff7a1a; --saffron-soft: #fff3ea; --saffron-line: #ffd9bd;
     --indigo: #4f46e5; --indigo-soft: #eef0ff; --indigo-line: #d4d6ff;
     --ink: #1a1a2e; --muted: #6b7280; --line: #ececf3; --bg: #fbfaf8; --card: #fff;
-    --ok: #137a3f; --ok-soft: #e7f8ee; --err: #b42318;
+    --ok: #137a3f; --ok-soft: #e7f8ee; --err: #b42318; --alert: #b42318; --alert-soft: #fff0ee;
     color-scheme: light;
   }
   * { box-sizing: border-box; }
@@ -31,10 +31,22 @@
   .chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .chip { font-size: .78rem; padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
 
-  .people { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 18px; }
+  .scenarios { display: flex; gap: 6px; flex-wrap: wrap; }
+  .scn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 14px; font: inherit;
+    font-size: .88rem; cursor: pointer; color: var(--ink); }
+  .scn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: .88rem; cursor: pointer; user-select: none;
+    border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 14px; }
+  .toggle input { accent-color: var(--saffron); width: 16px; height: 16px; }
+
+  .people { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 16px; }
   @media (max-width: 720px) { .people { grid-template-columns: 1fr; } }
+  body.table .people { grid-template-columns: 1fr; }
+  body.table .card.b { transform: rotate(180deg); }
+  body.table #now { display: none !important; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 20px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+    box-shadow: 0 1px 2px rgba(0,0,0,.03); transition: transform .5s; }
   .card.a { border-top: 4px solid var(--saffron); }
   .card.b { border-top: 4px solid var(--indigo); }
   .head { display: flex; align-items: center; gap: 12px; }
@@ -45,10 +57,20 @@
   .who { font-weight: 800; }
   .native { color: var(--muted); font-size: .92rem; font-family: 'Noto Sans', sans-serif; }
   select { margin-left: auto; font: inherit; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line);
-    background: #fff; color: var(--ink); cursor: pointer; }
+    background: #fff; color: var(--ink); cursor: pointer; max-width: 50%; }
   .pill { display: inline-block; font-size: .76rem; padding: 4px 11px; border-radius: 999px; margin: 14px 0 4px;
     background: #f4f4f7; color: var(--muted); }
   .pill.on { background: var(--ok-soft); color: var(--ok); }
+
+  .inbox { margin-top: 12px; border-radius: 16px; padding: 14px 16px; font-family: 'Noto Sans', sans-serif; }
+  .a .inbox { background: var(--saffron-soft); } .b .inbox { background: var(--indigo-soft); }
+  .inbox .from { font-size: .74rem; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif; }
+  .inbox .msg { font-size: 1.25rem; font-weight: 600; margin-top: 4px; line-height: 1.35; }
+
+  .facts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .fact { font-size: .8rem; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: var(--alert-soft);
+    color: var(--alert); border: 1px solid #ffd0ca; font-family: 'Noto Sans', sans-serif; }
+  .now .fact { background: rgba(255,255,255,.95); border-color: transparent; }
 
   .mic { width: 100%; margin-top: 12px; border: 0; border-radius: 18px; padding: 18px; font: inherit;
     font-weight: 700; font-size: 1.05rem; color: #fff; cursor: pointer; display: flex; align-items: center;
@@ -67,8 +89,8 @@
   .step.active { background: var(--saffron-soft); color: #b45309; animation: blink 1s infinite; }
   .step.done { background: var(--ok-soft); color: var(--ok); }
   @keyframes blink { 50% { opacity: .55; } }
-  .status .msg { margin-top: 8px; font-size: .88rem; color: var(--muted); }
-  .status .msg.err { color: var(--err); }
+  .status .smsg { margin-top: 8px; font-size: .88rem; color: var(--muted); }
+  .status .smsg.err { color: var(--err); }
 
   .now { border-radius: 22px; padding: 22px 26px; margin-top: 18px; color: #fff; display: none;
     background: linear-gradient(120deg, var(--saffron), #e0458f 50%, var(--indigo)); }
@@ -76,7 +98,7 @@
   .now .label { font-size: .76rem; opacity: .88; text-transform: uppercase; letter-spacing: 1px; }
   .now .text { font-size: clamp(1.3rem, 4vw, 1.7rem); font-weight: 600; line-height: 1.35; margin: 8px 0;
     font-family: 'Noto Sans', sans-serif; }
-  .now .orig { font-size: .92rem; opacity: .88; }
+  .now .orig { font-size: .92rem; opacity: .88; font-family: 'Noto Sans', sans-serif; }
   .replay { margin-top: 12px; background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.4);
     border-radius: 999px; padding: 7px 16px; font: inherit; cursor: pointer; }
 
@@ -87,18 +109,23 @@
   .row.b .bubble { background: var(--indigo-soft); border-color: var(--indigo-line); border-top-right-radius: 4px; }
   .bubble .o { font-size: .85rem; color: var(--muted); font-family: 'Noto Sans', sans-serif; }
   .bubble .t { font-size: 1.1rem; margin-top: 4px; font-family: 'Noto Sans', sans-serif; }
-  .bubble .m { font-size: .72rem; color: var(--muted); margin-top: 6px; display: flex; gap: 10px; align-items: center; }
+  .bubble .en { font-size: .82rem; color: var(--muted); margin-top: 6px; font-style: italic; }
+  .now .en { font-size: .88rem; opacity: .9; font-style: italic; margin-top: 4px; }
+  .bubble .m { font-size: .72rem; color: var(--muted); margin-top: 6px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .bubble button { border: 0; background: none; cursor: pointer; font-size: .9rem; padding: 0; }
   .empty { text-align: center; color: var(--muted); padding: 26px; border: 2px dashed var(--line); border-radius: 18px; margin-top: 18px; }
 
   .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
   .btn { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 13px; font: inherit;
-    font-weight: 600; cursor: pointer; color: var(--ink); }
+    font-weight: 600; cursor: pointer; color: var(--ink); text-align: center; text-decoration: none; }
   .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.wa { background: #25d366; color: #fff; border-color: #25d366; }
   .btn:disabled { opacity: .5; cursor: wait; }
   .summary { margin-top: 14px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px;
     font-family: 'Noto Sans', sans-serif; line-height: 1.6; display: none; }
   .summary.show { display: block; }
+  .share { display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .share.show { display: grid; }
   .foot { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 34px; }
 </style>
 </head>
@@ -108,11 +135,17 @@
     <h1><span class="grad">एक आवाज़</span> · Ek Awaaz</h1>
     <p>Speak your language. They hear theirs, <b>in your own voice.</b></p>
     <div class="chips">
-      <span class="chip">🎧 Saaras v3 · speech-to-text</span>
+      <span class="chip">🎧 Saaras v3 · auto-detects language</span>
       <span class="chip">🧠 Sarvam-105B · context-aware interpreting</span>
       <span class="chip">🧬 Voice Cloning · cross-lingual</span>
+      <span class="chip">🚨 Critical-fact alerts</span>
       <span class="chip">🌏 12 Indian languages</span>
     </div>
+  </section>
+
+  <section class="toolbar">
+    <div class="scenarios" id="scenarios"></div>
+    <label class="toggle"><input type="checkbox" id="tableMode"> 📱 Face-to-face table mode</label>
   </section>
 
   <section class="people" id="people"></section>
@@ -123,17 +156,19 @@
       <span class="step" data-step="translate">🧠 Interpreting</span>
       <span class="step" data-step="voice">🧬 Cloning voice</span>
     </div>
-    <div class="msg" id="statusMsg"></div>
+    <div class="smsg" id="statusMsg"></div>
   </section>
 
   <section class="now" id="now">
     <div class="label" id="nowLabel"></div>
     <div class="text" id="nowText"></div>
+    <div class="facts" id="nowFacts"></div>
     <div class="orig" id="nowOrig"></div>
+    <div class="en" id="nowEn"></div>
     <button class="replay" id="replay">▶ Play again</button>
   </section>
 
-  <div class="empty" id="empty">👆 Pick a language for each person, tap the mic and speak.<br>
+  <div class="empty" id="empty">👆 Pick a scenario and languages (or ✨ Auto-detect), tap the mic and speak.<br>
     The other person hears it in their language, <b>in your voice</b>.</div>
 
   <section id="convo" hidden>
@@ -144,6 +179,10 @@
       <button class="btn" id="reset">🔄 New conversation</button>
     </div>
     <div class="summary" id="summary"></div>
+    <div class="share" id="share">
+      <a class="btn wa" id="whatsapp" target="_blank" rel="noopener">📲 Send on WhatsApp</a>
+      <button class="btn" id="download">⬇️ Download transcript</button>
+    </div>
   </section>
 
   <div class="foot">Built with Sarvam AI · Saaras · Sarvam-105B · Voice Cloning · Bulbul</div>
@@ -155,26 +194,38 @@ const LANGS = {
   Bengali: "বাংলা", Marathi: "मराठी", Gujarati: "ગુજરાતી", Punjabi: "ਪੰਜਾਬੀ", Odia: "ଓଡ଼ିଆ",
   Assamese: "অসমীয়া", English: "English",
 };
+const SCENARIOS = { general: "💬 General", doctor: "🏥 Doctor", police: "👮 Police", rent: "🏠 Renting", bank: "🏦 Bank", market: "🛒 Market" };
 const MAX_SECONDS = 30;
 const state = {
-  people: { A: { lang: "Hindi", voice: null }, B: { lang: "Tamil", voice: null } },
-  turns: [], busy: false, lastAudio: null, recorder: null,
+  people: { A: { lang: "Auto", voice: null }, B: { lang: "Tamil", voice: null } },
+  scenario: "doctor", turns: [], busy: false, lastAudio: null, recorder: null, summary: "",
 };
 const $ = (id) => document.getElementById(id);
-const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const other = (p) => (p === "A" ? "B" : "A");
+const factsHtml = (facts) => (facts && facts.length ? `<div class="facts">${facts.map((f) => `<span class="fact">🚨 ${esc(f)}</span>`).join("")}</div>` : "");
+
+function renderScenarios() {
+  $("scenarios").innerHTML = Object.entries(SCENARIOS).map(([k, label]) =>
+    `<button class="scn ${k === state.scenario ? "on" : ""}" data-k="${k}">${label}</button>`).join("");
+  document.querySelectorAll(".scn").forEach((b) => b.onclick = () => { state.scenario = b.dataset.k; renderScenarios(); });
+}
 
 function renderPeople() {
   $("people").innerHTML = ["A", "B"].map((p) => {
     const { lang, voice } = state.people[p];
-    const options = Object.keys(LANGS).map((l) => `<option ${l === lang ? "selected" : ""}>${l}</option>`).join("");
+    const options = [`<option value="Auto" ${lang === "Auto" ? "selected" : ""}>✨ Auto-detect</option>`]
+      .concat(Object.keys(LANGS).map((l) => `<option ${l === lang ? "selected" : ""}>${l}</option>`)).join("");
+    const inbox = [...state.turns].reverse().find((t) => t.who === other(p));
     return `<div class="card ${p.toLowerCase()}">
       <div class="head"><div class="avatar">${p}</div>
-        <div><div class="who">Person ${p}</div><div class="native">speaks ${LANGS[lang]}</div></div>
+        <div><div class="who">Person ${p}</div><div class="native">${lang === "Auto" ? "language auto-detected" : "speaks " + LANGS[lang]}</div></div>
         <select data-p="${p}" aria-label="Person ${p} language">${options}</select></div>
       <span class="pill ${voice ? "on" : ""}">${voice ? "🧬 Voice captured · replies sound like you"
         : "Your first message becomes your voice (speak 5+ sec)"}</span>
-      <button class="mic" data-p="${p}" ${state.busy ? "disabled" : ""}>🎙️ Tap to speak ${lang}</button>
+      ${inbox ? `<div class="inbox"><div class="from">Person ${inbox.who} said:</div>
+        <div class="msg">${esc(inbox.translated)}</div>${factsHtml(inbox.facts)}</div>` : ""}
+      <button class="mic" data-p="${p}" ${state.busy ? "disabled" : ""}>🎙️ Tap to speak${lang === "Auto" ? "" : " " + lang}</button>
     </div>`;
   }).join("");
   document.querySelectorAll("select").forEach((s) => s.onchange = () => {
@@ -186,6 +237,9 @@ function renderPeople() {
 // ---------- Recording: mic -> 16 kHz mono WAV (accepted by every Sarvam audio API) ----------
 async function toggleRecording(p, btn) {
   if (state.recorder) return state.recorder.stop();
+  if (state.people[other(p)].lang === "Auto") {
+    return showStatus(`Pick Person ${other(p)}'s language first, so we know what to translate into.`, true);
+  }
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
   catch { return showStatus("Microphone access was blocked. Allow it in the browser and try again.", true); }
@@ -205,8 +259,12 @@ async function toggleRecording(p, btn) {
     clearInterval(timer);
     stream.getTracks().forEach((t) => t.stop());
     state.recorder = null;
-    const wav = await toWav16k(new Blob(chunks, { type: rec.mimeType }));
-    sendTurn(p, wav);
+    try {
+      const wav = await toWav16k(new Blob(chunks, { type: rec.mimeType }));
+      sendTurn(p, wav);
+    } catch (e) {
+      renderPeople(); showStatus("Couldn't read the recording: " + e.message, true);
+    }
   };
   rec.start();
 }
@@ -243,26 +301,31 @@ async function sendTurn(p, wav) {
   if (firstClip) me.voice = wav.b64;
   state.busy = true; renderPeople();
   showSteps("stt");
-  const stepTimers = [setTimeout(() => showSteps("translate"), 900), setTimeout(() => showSteps("voice"), 1800)];
-  showStatus(`Person ${p}: ${me.lang} → ${them.lang}${firstClip ? " · capturing your voice" : ""}`);
+  const stepTimers = [setTimeout(() => showSteps("translate"), 1000), setTimeout(() => showSteps("voice"), 2000)];
+  showStatus(`Person ${p}: ${me.lang === "Auto" ? "detecting language" : me.lang} → ${them.lang}${firstClip ? " · capturing your voice" : ""}`);
   try {
     const res = await fetch("/api/turn", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ src: me.lang, tgt: them.lang, audio: wav.b64, ref: me.voice,
+        refText: firstClip ? null : me.voiceText, scenario: state.scenario,
         history: state.turns.map(({ who, src, original }) => ({ who, src, original })) }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);
-    if (data.empty) { if (firstClip) me.voice = null; throw new Error("Didn't catch that. Try again a little louder."); }
+    if (data.empty) throw new Error("Didn't catch that. Try again a little louder.");
+    const detected = me.lang === "Auto";
+    me.lang = data.src;
+    if (firstClip) me.voiceText = data.original;
     const t = data.timings;
-    state.turns.push({ who: p, src: me.lang, tgt: them.lang, original: data.original,
-      translated: data.translated, cloned: data.cloned, secs: t.total, audio: data.audio });
+    state.turns.push({ who: p, src: data.src, tgt: them.lang, original: data.original, translated: data.translated,
+      english: data.english || "",
+      facts: data.key_facts || [], cloned: data.cloned, secs: t.total, audio: data.audio });
     showSteps("done", t);
-    showStatus(`Done in ${t.total.toFixed(1)}s · ${data.cloned ? `spoken in Person ${p}'s voice` : "standard voice (clone unavailable)"}`);
+    showStatus(`${detected ? `✨ Detected ${data.src} · ` : ""}Done in ${t.total.toFixed(1)}s · ${data.cloned ? `spoken in Person ${p}'s voice` : "standard voice (clone unavailable)"}`);
     renderTurns();
     play(data.audio);
   } catch (e) {
-    if (firstClip && me.voice === wav.b64 && !state.turns.some((x) => x.who === p)) me.voice = null;
+    if (firstClip && !state.turns.some((x) => x.who === p)) me.voice = null;
     showSteps(null);
     showStatus(e.message, true);
   } finally {
@@ -302,17 +365,21 @@ function renderTurns() {
   const last = state.turns[state.turns.length - 1];
   $("nowLabel").textContent = `Now speaking · ${last.tgt} · ${last.cloned ? `in Person ${last.who}'s voice` : "standard voice"}`;
   $("nowText").textContent = last.translated;
+  $("nowFacts").innerHTML = (last.facts || []).map((f) => `<span class="fact">🚨 ${esc(f)}</span>`).join("");
   $("nowOrig").textContent = `Person ${last.who} said in ${last.src}: ${last.original}`;
+  $("nowEn").textContent = last.english && last.src !== "English" && last.tgt !== "English" ? `🇬🇧 ${last.english}` : "";
   $("bubbles").innerHTML = state.turns.map((t, i) => ({ t, i })).reverse().map(({ t, i }) =>
     `<div class="row ${t.who.toLowerCase()}"><div class="bubble">
       <div class="o">Person ${t.who} · ${t.src}: ${esc(t.original)}</div>
-      <div class="t">${esc(t.translated)}</div>
+      <div class="t">${esc(t.translated)}</div>${factsHtml(t.facts)}
+      ${t.english && t.src !== "English" && t.tgt !== "English" ? `<div class="en">🇬🇧 ${esc(t.english)}</div>` : ""}
       <div class="m"><button data-i="${i}" title="Play">🔊</button>→ ${t.tgt} · ${t.cloned ? "🧬 cloned voice" : "🔈 standard voice"} · ${t.secs.toFixed(1)}s</div>
     </div></div>`).join("");
   document.querySelectorAll(".bubble button").forEach((b) => b.onclick = () => play(state.turns[b.dataset.i].audio));
 }
 
 $("replay").onclick = () => state.lastAudio && (state.lastAudio.currentTime = 0, state.lastAudio.play());
+$("tableMode").onchange = (e) => document.body.classList.toggle("table", e.target.checked);
 
 $("summarize").onclick = async () => {
   const btn = $("summarize");
@@ -321,16 +388,34 @@ $("summarize").onclick = async () => {
     const res = await fetch("/api/summary", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ turns: state.turns.map(({ who, original }) => ({ who, original })),
-        langA: state.people.A.lang, langB: state.people.B.lang }),
+        langA: state.people.A.lang, langB: state.people.B.lang, scenario: state.scenario }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);
-    $("summary").innerHTML = "<b>📝 Conversation summary</b><br>" + mdLite(data.summary);
+    state.summary = data.summary;
+    $("summary").innerHTML = `<b>📝 ${SCENARIOS[state.scenario]} · summary</b><br>` + mdLite(data.summary);
+    $("whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(`Ek Awaaz · ${SCENARIOS[state.scenario]} summary\n\n${data.summary}`);
+    $("share").classList.add("show");
   } catch (e) {
     $("summary").textContent = "Couldn't summarize: " + e.message;
   }
   $("summary").classList.add("show");
   btn.disabled = false; btn.textContent = "📝 Summarize in both languages";
+};
+
+$("download").onclick = () => {
+  const lines = [`Ek Awaaz · ${SCENARIOS[state.scenario]} · ${new Date().toLocaleString()}`, ""];
+  state.turns.forEach((t) => {
+    lines.push(`Person ${t.who} (${t.src}): ${t.original}`, `  → ${t.tgt}: ${t.translated}`);
+    if (t.english) lines.push(`  English: ${t.english}`);
+    if (t.facts.length) lines.push(`  Critical: ${t.facts.join(" | ")}`);
+    lines.push("");
+  });
+  if (state.summary) lines.push("Summary", state.summary);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+  a.download = "ek-awaaz-transcript.txt";
+  a.click();
 };
 
 function mdLite(text) {
@@ -342,12 +427,13 @@ function mdLite(text) {
 }
 
 $("reset").onclick = () => {
-  state.turns = []; state.lastAudio = null;
-  state.people.A.voice = state.people.B.voice = null;
-  $("status").classList.remove("show"); $("summary").classList.remove("show");
+  state.turns = []; state.lastAudio = null; state.summary = "";
+  state.people.A.voice = state.people.B.voice = state.people.A.voiceText = state.people.B.voiceText = null;
+  ["status", "summary", "share"].forEach((id) => $(id).classList.remove("show"));
   renderTurns(); renderPeople();
 };
 
+renderScenarios();
 renderPeople();
 renderTurns();
 </script>
