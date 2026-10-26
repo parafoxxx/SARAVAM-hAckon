@@ -1,34 +1,28 @@
-"""Ek Awaaz - speak your language, they hear theirs, in your own voice."""
+"""Ek Awaaz - speak your language, they hear theirs, in your own voice (Streamlit app)."""
 
-import base64
 import hashlib
 import html
 import os
+import sys
 import time
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 import streamlit as st
-from sarvamai import SarvamAI
 
-# Languages supported end to end: STT, translation and voice cloning.
-LANGUAGES = {
-    "Hindi": ("hi-IN", "हिन्दी"),
-    "Tamil": ("ta-IN", "தமிழ்"),
-    "Telugu": ("te-IN", "తెలుగు"),
-    "Kannada": ("kn-IN", "ಕನ್ನಡ"),
-    "Malayalam": ("ml-IN", "മലയാളം"),
-    "Bengali": ("bn-IN", "বাংলা"),
-    "Marathi": ("mr-IN", "मराठी"),
-    "Gujarati": ("gu-IN", "ગુજરાતી"),
-    "Punjabi": ("pa-IN", "ਪੰਜਾਬੀ"),
-    "Odia": ("od-IN", "ଓଡ଼ିଆ"),
-    "Assamese": ("as-IN", "অসমীয়া"),
-    "English": ("en-IN", "English"),
+# The Sarvam pipeline lives in api/_sarvam.py, shared with the serverless version.
+sys.path.insert(0, str(Path(__file__).with_name("api")))
+import _sarvam as sarvam  # noqa: E402
+
+NATIVE = {
+    "Hindi": "हिन्दी", "Tamil": "தமிழ்", "Telugu": "తెలుగు", "Kannada": "ಕನ್ನಡ", "Malayalam": "മലയാളം",
+    "Bengali": "বাংলা", "Marathi": "मराठी", "Gujarati": "ગુજરાતી", "Punjabi": "ਪੰਜਾਬੀ", "Odia": "ଓଡ଼ିଆ",
+    "Assamese": "অসমীয়া", "English": "English",
 }
-
-
-def code(lang):
-    return LANGUAGES[lang][0]
+SCENARIOS = {"general": "💬 General", "doctor": "🏥 Doctor", "police": "👮 Police",
+             "rent": "🏠 Renting", "bank": "🏦 Bank", "market": "🛒 Market"}
+AUTO = "✨ Auto-detect"
 
 
 def load_api_key():
@@ -38,85 +32,27 @@ def load_api_key():
             if "=" in line and not line.lstrip().startswith("#"):
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip())
-    if os.environ.get("SARVAM_API_KEY"):
-        return os.environ["SARVAM_API_KEY"]
-    try:  # Streamlit Cloud deployments keep the key in st.secrets.
-        return st.secrets["SARVAM_API_KEY"]
-    except Exception:
-        return None
+    if not os.environ.get("SARVAM_API_KEY"):
+        try:  # Streamlit Cloud deployments keep the key in st.secrets.
+            os.environ["SARVAM_API_KEY"] = st.secrets["SARVAM_API_KEY"]
+        except Exception:
+            return None
+    return os.environ["SARVAM_API_KEY"]
 
 
 @st.cache_resource
-def get_client(api_key):
-    return SarvamAI(api_subscription_key=api_key)
+def get_client(_api_key):
+    return sarvam.client()
 
 
-def transcribe(client, audio_bytes, lang):
-    res = client.speech_to_text.transcribe(
-        file=("speech.wav", audio_bytes, "audio/wav"),
-        model="saaras:v3",
-        language_code=code(lang),
-    )
-    return res.transcript
+def esc(s):
+    return html.escape(str(s))
 
 
-def translate(client, text, src, tgt, history):
-    """Context-aware interpretation with Sarvam-105B; Sarvam-Translate as fallback."""
-    context = "\n".join(f"Person {t['who']} ({t['src']}): {t['original']}" for t in history[-6:])
-    system = (
-        f"You are a live interpreter between two people. Translate the latest message from {src} "
-        f"to {tgt} exactly, the way a native speaker would say it aloud. Keep meaning, gender, "
-        "names, numbers and tone. Use the earlier conversation only to resolve who 'he', 'she', "
-        f"'it' etc. refer to. Output only the {tgt} translation.\n\n"
-        f"Earlier conversation:\n{context or '(none)'}"
-    )
-    try:
-        res = client.chat.completions(
-            model="sarvam-105b-conversations",
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": text}],
-        )
-        out = (res.choices[0].message.content or "").strip()
-        if out:
-            return out
-    except Exception:
-        pass
-    res = client.text.translate(
-        input=text,
-        source_language_code=code(src),
-        target_language_code=code(tgt),
-        model="sarvam-translate:v1",
-    )
-    return res.translated_text
-
-
-def speak(client, text, lang, ref_audio):
-    """Speak text in the speaker's cloned voice; fall back to a stock Bulbul voice."""
-    try:
-        res = client.voice_cloning.convert(
-            text=text[:1000],
-            language_code=code(lang),
-            ref_audio=("ref.wav", ref_audio, "audio/wav"),
-            output_audio_codec="wav",
-        )
-        return base64.b64decode(res.audio_b64), True
-    except Exception:
-        res = client.text_to_speech.convert(text=text[:1500], language_code=code(lang), model="bulbul:v3")
-        return base64.b64decode(res.audios[0]), False
-
-
-def summarize(client, turns, lang_a, lang_b):
-    convo = "\n".join(f"Person {t['who']}: {t['original']}" for t in turns)
-    prompt = (
-        "Below is a conversation between two people who don't share a language.\n"
-        "Write a short summary of what was discussed and any decisions, numbers, dates "
-        f"or next steps. Write it twice: first in {lang_a}, then in {lang_b}. "
-        "Use simple words and short bullet points. No preamble.\n\n" + convo
-    )
-    res = client.chat.completions(
-        model="sarvam-105b-conversations",
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return res.choices[0].message.content
+def facts_html(facts):
+    if not facts:
+        return ""
+    return '<div class="facts">' + "".join(f'<span class="fact">🚨 {esc(f)}</span>' for f in facts) + "</div>"
 
 
 # ---------- Page ----------
@@ -127,53 +63,66 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Noto+Sans:wght@400;600&display=swap');
     :root {
-      --saffron: #ff7a1a; --saffron-soft: #fff3ea;
-      --indigo: #4f46e5; --indigo-soft: #eef0ff;
-      --ink: #1a1a2e; --muted: #6b7280; --line: #ececf3;
+      --saffron: #ff7a1a; --saffron-soft: #fff3ea; --saffron-line: #ffd9bd;
+      --indigo: #4f46e5; --indigo-soft: #eef0ff; --indigo-line: #d4d6ff;
+      --ink: #1a1a2e; --muted: #6b7280; --line: #ececf3; --alert: #b42318; --alert-soft: #fff0ee;
     }
     html, body, [class*="css"], .stMarkdown { font-family: 'Plus Jakarta Sans', 'Noto Sans', sans-serif; }
     #MainMenu, footer, header [data-testid="stToolbar"] { visibility: hidden; }
-    .block-container { padding-top: 1.6rem; max-width: 1100px; }
+    .block-container { padding-top: 1.4rem; max-width: 1100px; }
 
     .hero { text-align: center; padding: 28px 16px 22px; border-radius: 24px;
-      background: radial-gradient(circle at 15% 20%, #ffe2cc 0, transparent 45%),
-                  radial-gradient(circle at 85% 80%, #dcdcff 0, transparent 45%), #fffdfb;
-      border: 1px solid var(--line); margin-bottom: 22px; }
-    .hero h1 { font-size: 2.7rem; font-weight: 800; margin: 0; color: var(--ink); letter-spacing: -1px; }
+      background: radial-gradient(circle at 12% 20%, #ffe2cc 0, transparent 45%),
+                  radial-gradient(circle at 88% 80%, #dcdcff 0, transparent 45%), #fffdfb;
+      border: 1px solid var(--line); margin-bottom: 14px; }
+    .hero h1 { font-size: clamp(2rem, 6vw, 2.8rem); font-weight: 800; margin: 0; color: var(--ink); letter-spacing: -1px; padding: 0; }
     .hero h1 .dev { background: linear-gradient(90deg, var(--saffron), var(--indigo));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     .hero p { color: var(--muted); font-size: 1.08rem; margin: 8px 0 14px; }
     .chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-    .chip { font-size: 0.78rem; padding: 5px 12px; border-radius: 999px; background: white;
-      border: 1px solid var(--line); color: var(--ink); }
+    .chip { font-size: 0.78rem; padding: 5px 12px; border-radius: 999px; background: white; border: 1px solid var(--line); color: var(--ink); }
 
-    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .st-key-card_A { border-top: 4px solid var(--saffron) !important; }
+    .st-key-card_B { border-top: 4px solid var(--indigo) !important; transition: transform .5s; }
+    .table-mode .st-key-card_B, body:has(.table-on) .st-key-card_B { transform: rotate(180deg); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
     .avatar { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
-      color: white; font-weight: 800; font-size: 1.2rem; }
+      color: white; font-weight: 800; font-size: 1.2rem; flex: none; }
     .avatar.a { background: linear-gradient(135deg, #ff9a4d, var(--saffron)); }
     .avatar.b { background: linear-gradient(135deg, #7c74ff, var(--indigo)); }
     .who { font-weight: 800; font-size: 1.05rem; color: var(--ink); }
-    .native { color: var(--muted); font-size: 0.9rem; }
-    .pill { display: inline-block; font-size: 0.75rem; padding: 3px 10px; border-radius: 999px; margin: 4px 0 2px; }
+    .native { color: var(--muted); font-size: 0.9rem; font-family: 'Noto Sans', sans-serif; }
+    .pill { display: inline-block; font-size: 0.75rem; padding: 3px 10px; border-radius: 999px; margin: 2px 0; }
     .pill.on { background: #e7f8ee; color: #137a3f; }
     .pill.off { background: #f4f4f7; color: var(--muted); }
 
-    .now { border-radius: 20px; padding: 20px 24px; margin: 18px 0 8px; color: white;
-      background: linear-gradient(120deg, var(--saffron), #e0458f 50%, var(--indigo)); }
-    .now .label { font-size: 0.78rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
-    .now .text { font-size: 1.6rem; font-weight: 600; line-height: 1.35; margin: 6px 0; font-family: 'Noto Sans', sans-serif; }
-    .now .orig { font-size: 0.92rem; opacity: 0.85; }
+    .inbox { border-radius: 14px; padding: 12px 14px; margin: 6px 0; font-family: 'Noto Sans', sans-serif; }
+    .inbox.a { background: var(--saffron-soft); } .inbox.b { background: var(--indigo-soft); }
+    .inbox .from { font-size: .74rem; color: var(--muted); }
+    .inbox .msg { font-size: 1.2rem; font-weight: 600; margin-top: 3px; line-height: 1.35; color: var(--ink); }
 
-    .row { display: flex; margin: 10px 0; }
-    .row.b { justify-content: flex-end; }
-    .bubble { max-width: 78%; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--line); }
-    .row.a .bubble { background: var(--saffron-soft); border-top-left-radius: 4px; }
-    .row.b .bubble { background: var(--indigo-soft); border-top-right-radius: 4px; }
-    .bubble .orig { font-size: 0.85rem; color: var(--muted); }
-    .bubble .trans { font-size: 1.12rem; color: var(--ink); margin-top: 4px; font-family: 'Noto Sans', sans-serif; }
+    .facts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .fact { font-size: .8rem; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: var(--alert-soft);
+      color: var(--alert); border: 1px solid #ffd0ca; font-family: 'Noto Sans', sans-serif; }
+    .now .fact { background: rgba(255,255,255,.95); border-color: transparent; }
+
+    .now { border-radius: 20px; padding: 20px 24px; margin: 14px 0 8px; color: white;
+      background: linear-gradient(120deg, var(--saffron), #e0458f 50%, var(--indigo)); }
+    .now .label { font-size: 0.76rem; opacity: 0.88; text-transform: uppercase; letter-spacing: 1px; }
+    .now .text { font-size: clamp(1.3rem, 4vw, 1.6rem); font-weight: 600; line-height: 1.35; margin: 6px 0; font-family: 'Noto Sans', sans-serif; }
+    .now .orig { font-size: 0.92rem; opacity: 0.88; font-family: 'Noto Sans', sans-serif; margin-top: 6px; }
+    .now .en { font-size: 0.88rem; opacity: 0.9; font-style: italic; margin-top: 4px; }
+
+    .row { display: flex; margin: 10px 0; } .row.b { justify-content: flex-end; }
+    .bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--line); }
+    .row.a .bubble { background: var(--saffron-soft); border-color: var(--saffron-line); border-top-left-radius: 4px; }
+    .row.b .bubble { background: var(--indigo-soft); border-color: var(--indigo-line); border-top-right-radius: 4px; }
+    .bubble .orig { font-size: 0.85rem; color: var(--muted); font-family: 'Noto Sans', sans-serif; }
+    .bubble .trans { font-size: 1.1rem; color: var(--ink); margin-top: 4px; font-family: 'Noto Sans', sans-serif; }
+    .bubble .en { font-size: .82rem; color: var(--muted); margin-top: 6px; font-style: italic; }
     .bubble .meta { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
 
-    .empty { text-align: center; color: var(--muted); padding: 26px; border: 2px dashed var(--line); border-radius: 18px; }
+    .empty { text-align: center; color: var(--muted); padding: 24px; border: 2px dashed var(--line); border-radius: 18px; margin-top: 10px; }
     .foot { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
     </style>
     """,
@@ -186,9 +135,10 @@ st.markdown(
       <h1><span class="dev">एक आवाज़</span> · Ek Awaaz</h1>
       <p>Speak your language. They hear theirs, <b>in your own voice.</b></p>
       <div class="chips">
-        <span class="chip">🎧 Saaras v3 · speech-to-text</span>
+        <span class="chip">🎧 Saaras v3 · auto-detects language</span>
         <span class="chip">🧠 Sarvam-105B · context-aware interpreting</span>
         <span class="chip">🧬 Voice Cloning · cross-lingual</span>
+        <span class="chip">🚨 Critical-fact alerts</span>
         <span class="chip">🌏 12 Indian languages</span>
       </div>
     </div>
@@ -204,34 +154,53 @@ client = get_client(api_key)
 
 ss = st.session_state
 ss.setdefault("turns", [])
-ss.setdefault("voices", {})  # person -> first clip, used as the cloning reference
+ss.setdefault("voices", {})  # person -> (first clip, its transcript), used as the cloning reference
 ss.setdefault("seen", set())
 ss.setdefault("latest", None)
 ss.setdefault("round", 0)  # bumped on reset to clear the mic widgets
+ss.setdefault("detected", {})  # person -> language detected while on auto
 
-names = list(LANGUAGES)
+top_l, top_r = st.columns([3, 1], vertical_alignment="center")
+with top_l:
+    scenario = st.pills("Scenario", list(SCENARIOS), default="doctor", format_func=SCENARIOS.get,
+                        label_visibility="collapsed", key="scenario") or "general"
+with top_r:
+    table_mode = st.toggle("📱 Face-to-face table mode", key="table_mode")
+if table_mode:
+    st.markdown('<span class="table-on"></span>', unsafe_allow_html=True)
+
+options = [AUTO] + list(NATIVE)
 people = {}
-col_a, col_b = st.columns(2, gap="large")
-for person, col, default in (("A", col_a, "Hindi"), ("B", col_b, "Tamil")):
-    with col, st.container(border=True):
-        lang = ss.get(f"lang_{person}", default)
+cols = st.columns(1 if table_mode else 2, gap="large")
+for i, (person, default) in enumerate((("A", AUTO), ("B", "Tamil"))):
+    col = cols[0] if table_mode else cols[i]
+    other = "B" if person == "A" else "A"
+    with col, st.container(border=True, key=f"card_{person}"):
+        choice = ss.get(f"lang_{person}", default)
+        shown = ss.detected.get(person) if choice == AUTO else choice
+        native = f"speaks {NATIVE[shown]}" if shown else "language auto-detected"
         st.markdown(
             f"""<div class="card-head"><div class="avatar {person.lower()}">{person}</div>
-            <div><div class="who">Person {person}</div>
-            <div class="native">speaks {LANGUAGES[lang][1]}</div></div></div>""",
+            <div><div class="who">Person {person}</div><div class="native">{native}</div></div></div>""",
             unsafe_allow_html=True,
         )
-        lang = st.selectbox("Language", names, index=names.index(default), key=f"lang_{person}",
-                            label_visibility="collapsed")
+        choice = st.selectbox("Language", options, index=options.index(default), key=f"lang_{person}",
+                              label_visibility="collapsed")
         if person in ss.voices:
             st.markdown('<span class="pill on">🧬 Voice captured · replies sound like you</span>', unsafe_allow_html=True)
         else:
             st.markdown('<span class="pill off">Your first message becomes your voice (speak 5+ sec)</span>',
                         unsafe_allow_html=True)
-        clip = st.audio_input(f"Tap to speak", key=f"mic_{person}_{ss['round']}", label_visibility="collapsed")
+        inbox = next((t for t in reversed(ss.turns) if t["who"] == other), None)
+        if inbox:
+            st.markdown(
+                f"""<div class="inbox {person.lower()}"><div class="from">Person {other} said:</div>
+                <div class="msg">{esc(inbox['translated'])}</div>{facts_html(inbox['facts'])}</div>""",
+                unsafe_allow_html=True,
+            )
+        clip = st.audio_input("Tap to speak", key=f"mic_{person}_{ss['round']}", label_visibility="collapsed")
+        lang = ss.detected.get(person, "Auto") if choice == AUTO else choice
         people[person] = (lang, clip)
-
-lang_a, lang_b = people["A"][0], people["B"][0]
 
 for person, (lang, clip) in people.items():
     if clip is None:
@@ -244,42 +213,56 @@ for person, (lang, clip) in people.items():
 
     other = "B" if person == "A" else "A"
     other_lang = people[other][0]
-    ss.voices.setdefault(person, audio)
+    if other_lang == "Auto":
+        st.warning(f"Pick Person {other}'s language first (or let them speak first), so we know what to translate into.")
+        continue
 
-    with st.status(f"Person {person}: {lang} → {other_lang}", expanded=True) as status:
+    first_clip = person not in ss.voices
+    label = f"Person {person}: {'detecting language' if lang == 'Auto' else lang} → {other_lang}"
+    with st.status(label, expanded=True) as status:
         try:
             t0 = time.time()
-            original = transcribe(client, audio, lang)
+            original, lang = sarvam.transcribe(client, audio, lang)
             t1 = time.time()
             if not original.strip():
                 status.update(label="Didn't catch that. Try again a little louder.", state="error")
                 continue
-            st.write(f"🎧 Heard ({t1 - t0:.1f}s): {original}")
-            translated = translate(client, original, lang, other_lang, ss.turns)
+            st.write(f"🎧 Heard {lang} ({t1 - t0:.1f}s): {original}")
+            translated, facts, english = sarvam.translate(client, original, lang, other_lang, ss.turns, scenario)
             t2 = time.time()
             st.write(f"🧠 Interpreted ({t2 - t1:.1f}s): {translated}")
-            speech, cloned = speak(client, translated, other_lang, ss.voices[person])
+            ref_audio, ref_text = ss.voices.get(person, (audio, original))
+            speech_b64, cloned = sarvam.speak(client, translated, other_lang, ref_audio, ref_text)
             t3 = time.time()
-            st.write(f"{'🧬 Spoken in Person ' + person + chr(39) + 's voice' if cloned else '🔈 Spoken (standard voice)'} ({t3 - t2:.1f}s)")
-            status.update(label=f"Person {person}: {lang} → {other_lang} · done in {t3 - t0:.1f}s",
+            st.write(f"{'🧬 Spoken in Person ' + person + chr(39) + 's voice' if cloned else '🔈 Spoken (standard voice)'} "
+                     f"({t3 - t2:.1f}s)")
+            status.update(label=f"{label.replace('detecting language', '✨ ' + lang)} · done in {t3 - t0:.1f}s",
                           state="complete", expanded=False)
         except Exception as e:
             status.update(label=f"Something went wrong: {e}", state="error")
             continue
 
-    ss.turns.append({"who": person, "original": original, "translated": translated, "src": lang,
-                     "tgt": other_lang, "cloned": cloned, "secs": t3 - t0})
-    ss.latest = speech
+    if first_clip:
+        ss.voices[person] = (audio, original)
+    if people[person][0] == "Auto" or ss.get(f"lang_{person}") == AUTO:
+        ss.detected[person] = lang
+    ss.turns.append({"who": person, "original": original, "translated": translated, "english": english,
+                     "facts": facts, "src": lang, "tgt": other_lang, "cloned": cloned, "secs": t3 - t0})
+    ss.latest = sarvam.b64decode(speech_b64)
+    st.rerun()
 
 if ss.turns:
     last = ss.turns[-1]
     voice = f"in Person {last['who']}'s voice" if last["cloned"] else "standard voice"
-    st.markdown(
-        f"""<div class="now"><div class="label">Now speaking · {last['tgt']} · {voice}</div>
-        <div class="text">{html.escape(last['translated'])}</div>
-        <div class="orig">Person {last['who']} said in {last['src']}: {html.escape(last['original'])}</div></div>""",
-        unsafe_allow_html=True,
-    )
+    show_en = last["english"] and "English" not in (last["src"], last["tgt"])
+    if not table_mode:
+        st.markdown(
+            f"""<div class="now"><div class="label">Now speaking · {last['tgt']} · {voice}</div>
+            <div class="text">{esc(last['translated'])}</div>{facts_html(last['facts'])}
+            <div class="orig">Person {last['who']} said in {last['src']}: {esc(last['original'])}</div>
+            {f'<div class="en">🇬🇧 {esc(last["english"])}</div>' if show_en else ''}</div>""",
+            unsafe_allow_html=True,
+        )
     if ss.latest:
         st.audio(ss.latest, format="audio/wav", autoplay=True)
 
@@ -287,10 +270,12 @@ if ss.turns:
     for t in reversed(ss.turns):
         side = t["who"].lower()
         voice = "🧬 cloned voice" if t["cloned"] else "🔈 standard voice"
+        en = (f'<div class="en">🇬🇧 {esc(t["english"])}</div>'
+              if t["english"] and "English" not in (t["src"], t["tgt"]) else "")
         st.markdown(
             f"""<div class="row {side}"><div class="bubble">
-            <div class="orig">Person {t['who']} · {t['src']}: {html.escape(t['original'])}</div>
-            <div class="trans">{html.escape(t['translated'])}</div>
+            <div class="orig">Person {t['who']} · {t['src']}: {esc(t['original'])}</div>
+            <div class="trans">{esc(t['translated'])}</div>{facts_html(t['facts'])}{en}
             <div class="meta">→ {t['tgt']} · {voice} · {t['secs']:.1f}s</div></div></div>""",
             unsafe_allow_html=True,
         )
@@ -298,23 +283,39 @@ if ss.turns:
     c1, c2 = st.columns(2)
     if c1.button("📝 Summarize in both languages", use_container_width=True, type="primary"):
         with st.spinner("Sarvam-105B is summarizing..."):
-            ss.summary = summarize(client, ss.turns, lang_a, lang_b)
+            langs = [people[p][0] if people[p][0] != "Auto" else "Hindi" for p in ("A", "B")]
+            ss.summary = sarvam.summarize(client, ss.turns, langs[0], langs[1], scenario)
     if c2.button("🔄 New conversation", use_container_width=True):
         next_round = ss["round"] + 1
-        for k in ("turns", "voices", "seen", "latest", "summary"):
+        for k in ("turns", "voices", "seen", "latest", "summary", "detected"):
             ss.pop(k, None)
         ss["round"] = next_round
         st.rerun()
+
     if ss.get("summary"):
         with st.container(border=True):
-            st.markdown("##### 📝 Conversation summary")
+            st.markdown(f"##### 📝 {SCENARIOS[scenario]} · summary")
             st.markdown(ss.summary)
+        lines = [f"Ek Awaaz · {SCENARIOS[scenario]} · {datetime.now():%d %b %Y %H:%M}", ""]
+        for t in ss.turns:
+            lines += [f"Person {t['who']} ({t['src']}): {t['original']}", f"  → {t['tgt']}: {t['translated']}"]
+            if t["english"]:
+                lines.append(f"  English: {t['english']}")
+            if t["facts"]:
+                lines.append(f"  Critical: {' | '.join(t['facts'])}")
+            lines.append("")
+        lines += ["Summary", ss.summary]
+        s1, s2 = st.columns(2)
+        s1.link_button("📲 Send on WhatsApp", use_container_width=True,
+                       url="https://wa.me/?text=" + quote(f"Ek Awaaz · {SCENARIOS[scenario]} summary\n\n{ss.summary}"))
+        s2.download_button("⬇️ Download transcript", "\n".join(lines), file_name="ek-awaaz-transcript.txt",
+                           use_container_width=True)
 else:
     st.markdown(
-        """<div class="empty">👆 Pick a language for each person, then tap the mic and speak.<br>
+        """<div class="empty">👆 Pick a scenario and languages (or ✨ Auto-detect), tap the mic and speak.<br>
         The other person hears it in their language, <b>in your voice</b>.</div>""",
         unsafe_allow_html=True,
     )
 
-st.markdown('<div class="foot">Built with Sarvam AI · Saaras · Sarvam-105B · Voice Cloning · Bulbul</div>',
+st.markdown('<div class="foot">Built with Sarvam AI · Saaras · Sarvam-Translate · Sarvam-105B · Voice Cloning · Bulbul</div>',
             unsafe_allow_html=True)

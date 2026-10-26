@@ -143,7 +143,8 @@ def summarize(c, turns, lang_a, lang_b, scenario="general"):
         "who don't share a language.\n"
         "Write a short summary of what was discussed and any decisions, numbers, dates "
         f"or next steps. {SUMMARY_FOCUS.get(scenario, '')} Write it twice: first in {lang_a}, then in {lang_b}. "
-        "Use simple words and short bullet points. No preamble.\n\n" + convo
+        "Use simple words and short bullet points. No preamble. Only include what was actually said: "
+        "never invent medicines, doses or details. Skip any point that was not discussed.\n\n" + convo
     )
     res = c.chat.completions(
         model="sarvam-105b-conversations",
