@@ -125,6 +125,25 @@ def translate(c, text, src, tgt, history, scenario="general"):
 
 
 COMMANDS = ("summarize", "share", "reset", "table_mode")
+
+WAKE_WORDS = ("एक आवाज", "एक आवाज़", "ek awaaz", "ek awaz", "ek aawaz", "ek avaaz", "एक अवाज", "ஏக் ஆவாஸ்")
+COMMAND_WORDS = [  # checked in order: "share" before "summarize", since "summary bhejo" means share
+    ("share", ("whatsapp", "व्हाट्सएप", "वॉट्सऐप", "व्हाट्सऐप", "भेज", "bhej", "send", "share", "शेयर")),
+    ("summarize", ("summary", "समरी", "सारांश", "सार", "summarize", "summarise", "சுருக்க")),
+    ("table_mode", ("table", "टेबल", "டேபிள்")),
+    ("reset", ("new conversation", "नया", "नई", "naya", "reset", "रीसेट", "शुरू से", "புதிய")),
+]
+
+
+def detect_command(transcript):
+    """Wake-word voice commands ("Ek Awaaz, summary banao"), matched in code so they never get translated."""
+    t = transcript.lower().replace("़", "")
+    if not any(w.replace("़", "") in t for w in WAKE_WORDS):
+        return None
+    for command, words in COMMAND_WORDS:
+        if any(w.lower() in t for w in words):
+            return command
+    return None
 NO_EXTRAS = {"command": None, "emergency": False, "actions": []}
 
 

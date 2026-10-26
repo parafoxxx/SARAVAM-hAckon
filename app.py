@@ -135,6 +135,10 @@ st.markdown(
     .bubble .en { font-size: .82rem; color: var(--muted); margin-top: 6px; font-style: italic; }
     .bubble .meta { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
 
+    .voicecmd { font-size: .86rem; color: var(--ink); background: #fffaf3; border: 1px dashed var(--saffron-line);
+      border-radius: 14px; padding: 10px 14px; margin: 4px 0 12px; line-height: 1.9; }
+    .voicecmd span { display: inline-block; background: white; border: 1px solid var(--line); border-radius: 999px;
+      padding: 1px 10px; margin: 0 4px; font-family: 'Noto Sans', sans-serif; }
     .empty { text-align: center; color: var(--muted); padding: 24px; border: 2px dashed var(--line); border-radius: 18px; margin-top: 10px; }
     .foot { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
     </style>
@@ -184,6 +188,14 @@ with top_r:
     table_mode = st.toggle("📱 Face-to-face table mode", key="table_mode")
 if table_mode:
     st.markdown('<span class="table-on"></span>', unsafe_allow_html=True)
+
+st.markdown(
+    """<div class="voicecmd">🎙️ <b>Voice commands</b>: tap any mic and say
+    <span>“Ek Awaaz, summary banao”</span><span>“Ek Awaaz, WhatsApp pe bhejo”</span>
+    <span>“Ek Awaaz, table mode”</span><span>“Ek Awaaz, naya conversation”</span>
+    · 🚑 emergencies and 📅 📍 actions are detected automatically</div>""",
+    unsafe_allow_html=True,
+)
 
 options = [AUTO] + list(NATIVE)
 people = {}
@@ -244,6 +256,12 @@ for person, (lang, clip) in people.items():
                 status.update(label="Didn't catch that. Try again a little louder.", state="error")
                 continue
             st.write(f"🎧 Heard {lang} ({t1 - t0:.1f}s): {original}")
+            spoken_command = sarvam.detect_command(original)
+            if spoken_command:
+                ss.pending_command = spoken_command
+                status.update(label=f"🎙️ Voice command: {COMMAND_LABELS[spoken_command]}", state="complete",
+                              expanded=False)
+                continue
             translated, facts, english, extras = sarvam.translate(client, original, lang, other_lang, ss.turns, scenario)
             t2 = time.time()
             if extras["command"]:
