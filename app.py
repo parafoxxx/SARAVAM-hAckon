@@ -11,7 +11,15 @@ from pathlib import Path
 from urllib.parse import quote
 
 import streamlit as st
-import streamlit.components.v1 as components
+
+
+def embed_html(source):
+    """Run a small script in a hidden iframe (st.iframe on new Streamlit, components.html on old)."""
+    if hasattr(st, "iframe"):
+        st.iframe(source, height=1)
+    else:
+        import streamlit.components.v1 as components
+        components.html(source, height=0)
 
 # The Sarvam pipeline lives in api/_sarvam.py, shared with the serverless version.
 sys.path.insert(0, str(Path(__file__).with_name("api")))
@@ -307,14 +315,20 @@ if command:
             langs = [people[p][0] if people[p][0] != "Auto" else "Hindi" for p in ("A", "B")]
             ss.summary = sarvam.summarize(client, ss.turns, langs[0], langs[1], scenario)
         ss.share_now = command == "share"
-        if ss.share_now:
-            wa_url = "https://wa.me/?text=" + quote(f"Ek Awaaz · {SCENARIOS[scenario]} summary\n\n{ss.summary}")
-            st.link_button("📲 Open WhatsApp now", wa_url, type="primary", use_container_width=True)
-            # Try to open WhatsApp straight away. Browsers allow this only shortly after a tap (the mic tap),
-            # so the big button above stays as the fallback.
-            components.html(
+        ss.auto_open_wa = ss.share_now
+    else:
+        st.warning("Have a conversation first, then ask for the summary.")
+
+# Once there is a summary, a big WhatsApp button stays at the top on every rerun.
+if ss.get("summary") and ss.turns:
+    wa_url = "https://wa.me/?text=" + quote(f"Ek Awaaz · {SCENARIOS[scenario]} summary\n\n{ss.summary}")
+    st.link_button("📲 Send summary on WhatsApp", wa_url, type="primary", use_container_width=True)
+    if ss.pop("auto_open_wa", False):
+        # Try to open WhatsApp straight away. Browsers allow this only shortly after a tap (the mic tap),
+        # so the big button above stays as the fallback.
+        embed_html(
                 f"""<script>
-                const url = {json.dumps(wa_url)};
+                const url = {json.dumps(wa_url).replace("</", "<\\/")};
                 let w = null;
                 try {{ w = window.open(url, "_blank"); }} catch (e) {{}}
                 if (!w) {{
@@ -324,8 +338,7 @@ if command:
                     window.parent.document.body.appendChild(a); a.click(); a.remove();
                   }} catch (e) {{}}
                 }}
-                </script>""",
-                height=0,
+                </script>"""
             )
 
 with st.expander("📄 Show a document: prescription, rent agreement, bank form", expanded=False):
