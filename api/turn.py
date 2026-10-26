@@ -25,7 +25,7 @@ class handler(BaseHTTPRequestHandler):
             t1 = time.time()
             if not original.strip():
                 return s.send_json(self, 200, {"empty": True})
-            translated, key_facts, english = s.translate(c, original, src, tgt, body.get("history", []),
+            translated, key_facts, english, _extras = s.translate(c, original, src, tgt, body.get("history", []),
                                                 body.get("scenario", "general"))
             t2 = time.time()
             # The first clip is its own reference, so its transcript is the reference text.

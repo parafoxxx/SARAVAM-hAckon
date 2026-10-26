@@ -45,6 +45,19 @@ def get_client(_api_key):
     return sarvam.client()
 
 
+COMMAND_LABELS = {"summarize": "summarize", "share": "summarize & share on WhatsApp",
+                  "reset": "new conversation", "table_mode": "table mode"}
+
+
+def reset_conversation():
+    ss = st.session_state
+    next_round = ss["round"] + 1
+    for k in ("turns", "voices", "seen", "latest", "summary", "detected", "share_now"):
+        ss.pop(k, None)
+    ss["round"] = next_round
+    st.rerun()
+
+
 def esc(s):
     return html.escape(str(s))
 
@@ -160,6 +173,9 @@ ss.setdefault("latest", None)
 ss.setdefault("round", 0)  # bumped on reset to clear the mic widgets
 ss.setdefault("detected", {})  # person -> language detected while on auto
 
+if ss.pop("_pending_table", False):  # set by the "table mode" voice command
+    ss["table_mode"] = True
+
 top_l, top_r = st.columns([3, 1], vertical_alignment="center")
 with top_l:
     scenario = st.pills("Scenario", list(SCENARIOS), default="doctor", format_func=SCENARIOS.get,
@@ -228,8 +244,13 @@ for person, (lang, clip) in people.items():
                 status.update(label="Didn't catch that. Try again a little louder.", state="error")
                 continue
             st.write(f"🎧 Heard {lang} ({t1 - t0:.1f}s): {original}")
-            translated, facts, english = sarvam.translate(client, original, lang, other_lang, ss.turns, scenario)
+            translated, facts, english, extras = sarvam.translate(client, original, lang, other_lang, ss.turns, scenario)
             t2 = time.time()
+            if extras["command"]:
+                ss.pending_command = extras["command"]
+                status.update(label=f"🎙️ Voice command: {COMMAND_LABELS[extras['command']]}", state="complete",
+                              expanded=False)
+                continue
             st.write(f"🧠 Interpreted ({t2 - t1:.1f}s): {translated}")
             ref_audio, ref_text = ss.voices.get(person, (audio, original))
             speech_b64, cloned = sarvam.speak(client, translated, other_lang, ref_audio, ref_text)
@@ -247,9 +268,25 @@ for person, (lang, clip) in people.items():
     if people[person][0] == "Auto" or ss.get(f"lang_{person}") == AUTO:
         ss.detected[person] = lang
     ss.turns.append({"who": person, "original": original, "translated": translated, "english": english,
-                     "facts": facts, "src": lang, "tgt": other_lang, "cloned": cloned, "secs": t3 - t0})
+                     "facts": facts, "src": lang, "tgt": other_lang, "cloned": cloned, "secs": t3 - t0,
+                     "emergency": extras["emergency"], "actions": extras["actions"]})
     ss.latest = sarvam.b64decode(speech_b64)
     st.rerun()
+
+# Voice commands ("Ek Awaaz, summary banao") run here, after the turn loop.
+command = ss.pop("pending_command", None)
+if command:
+    st.toast(f"🎙️ Voice command: {COMMAND_LABELS[command]}")
+    if command == "reset":
+        reset_conversation()
+    elif command == "table_mode":
+        ss["_pending_table"] = True
+        st.rerun()
+    elif ss.turns:
+        with st.spinner("Sarvam-105B is summarizing..."):
+            langs = [people[p][0] if people[p][0] != "Auto" else "Hindi" for p in ("A", "B")]
+            ss.summary = sarvam.summarize(client, ss.turns, langs[0], langs[1], scenario)
+        ss.share_now = command == "share"
 
 with st.expander("📄 Show a document: prescription, rent agreement, bank form", expanded=False):
     d1, d2, d3 = st.columns([1, 1, 1])
@@ -308,6 +345,16 @@ if ss.turns:
             {f'<div class="en">🇬🇧 {esc(last["english"])}</div>' if show_en else ''}</div>""",
             unsafe_allow_html=True,
         )
+    if last.get("emergency"):
+        st.error(f"🚑 **Emergency detected** in what Person {last['who']} said. Get help now.", icon="🚨")
+        e1, e2 = st.columns(2)
+        e1.link_button("🚑 Call 108 · Ambulance", "tel:108", type="primary", use_container_width=True)
+        e2.link_button("🆘 Call 112 · Emergency", "tel:112", use_container_width=True)
+    links = [l for l in (sarvam.action_link(a) for a in last.get("actions", [])) if l]
+    if links:
+        st.markdown("**⚡ One-tap actions from what was said**")
+        for col, (label, url) in zip(st.columns(len(links)), links):
+            col.link_button(label, url, use_container_width=True)
     if ss.latest:
         st.audio(ss.latest, format="audio/wav", autoplay=True)
 
@@ -331,11 +378,7 @@ if ss.turns:
             langs = [people[p][0] if people[p][0] != "Auto" else "Hindi" for p in ("A", "B")]
             ss.summary = sarvam.summarize(client, ss.turns, langs[0], langs[1], scenario)
     if c2.button("🔄 New conversation", use_container_width=True):
-        next_round = ss["round"] + 1
-        for k in ("turns", "voices", "seen", "latest", "summary", "detected"):
-            ss.pop(k, None)
-        ss["round"] = next_round
-        st.rerun()
+        reset_conversation()
 
     if ss.get("summary"):
         with st.container(border=True):
@@ -350,6 +393,8 @@ if ss.turns:
                 lines.append(f"  Critical: {' | '.join(t['facts'])}")
             lines.append("")
         lines += ["Summary", ss.summary]
+        if ss.get("share_now"):
+            st.success("🎙️ Summary ready. Tap **📲 Send on WhatsApp** below.")
         s1, s2 = st.columns(2)
         s1.link_button("📲 Send on WhatsApp", use_container_width=True,
                        url="https://wa.me/?text=" + quote(f"Ek Awaaz · {SCENARIOS[scenario]} summary\n\n{ss.summary}"))

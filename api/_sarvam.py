@@ -79,7 +79,19 @@ def translate(c, text, src, tgt, history, scenario="general"):
         "Also list the critical facts in the message that must not be misunderstood (medicines, doses, "
         "amounts, prices, dates, times, places, warnings), each as a very short phrase in "
         f"{tgt}. Use an empty list if there are none.\n"
-        'Reply with JSON only: {"details": ["..."], "translation": "...", "key_facts": ["..."]}\n\n'
+        "Also decide:\n"
+        "- command: ONLY if the speaker is talking to the app itself by name, 'Ek Awaaz' (e.g. 'Ek Awaaz, "
+        "summary banao'), one of \"summarize\", \"share\" (send on WhatsApp), \"reset\" (new conversation), "
+        "\"table_mode\"; otherwise null.\n"
+        "- emergency: true only if the message describes an emergency happening now (unconscious, chest "
+        "pain, can't breathe, heavy bleeding, accident, fire, assault); else false.\n"
+        "- actions: up to 3 one-tap actions the message implies, else []. Use "
+        '{"type": "reminder", "title": "<short>", "details": "<what and when>"} for medicines, appointments '
+        'or deadlines; {"type": "map", "label": "<short>", "query": "<place or address, in English>"} when a place is '
+        'named; {"type": "call", "label": "<short>", "number": "<digits>"} only when a phone number is said. '
+        f"Write title, details and label in {tgt}.\n"
+        'Reply with JSON only: {"details": ["..."], "translation": "...", "key_facts": ["..."], '
+        '"command": null, "emergency": false, "actions": []}\n\n'
         f"Earlier conversation:\n{context or '(none)'}"
     )
     user = f"{src} message: {text}" + (f"\nEnglish reference: {english}" if english else "")
@@ -92,10 +104,15 @@ def translate(c, text, src, tgt, history, scenario="general"):
         try:
             data = _parse_json(raw)
             if data.get("translation"):
-                return data["translation"].strip(), [str(f) for f in data.get("key_facts", [])][:4], english
+                extras = {
+                    "command": data.get("command") if data.get("command") in COMMANDS else None,
+                    "emergency": data.get("emergency") is True,
+                    "actions": [a for a in data.get("actions") or [] if isinstance(a, dict)][:3],
+                }
+                return data["translation"].strip(), [str(f) for f in data.get("key_facts", [])][:4], english, extras
         except Exception:
             if raw and "{" not in raw:
-                return raw, [], english
+                return raw, [], english, NO_EXTRAS
     except Exception:
         pass
     res = c.text.translate(
@@ -104,7 +121,27 @@ def translate(c, text, src, tgt, history, scenario="general"):
         target_language_code=LANG_CODES[tgt],
         model="sarvam-translate:v1",
     )
-    return res.translated_text, [], english
+    return res.translated_text, [], english, NO_EXTRAS
+
+
+COMMANDS = ("summarize", "share", "reset", "table_mode")
+NO_EXTRAS = {"command": None, "emergency": False, "actions": []}
+
+
+def action_link(a):
+    """Turn a detected action into (button label, URL)."""
+    from urllib.parse import quote, urlencode
+
+    kind = a.get("type")
+    if kind == "reminder":
+        q = urlencode({"action": "TEMPLATE", "text": a.get("title", "Reminder"), "details": a.get("details", "")})
+        return f"📅 {a.get('title', 'Add reminder')}", f"https://calendar.google.com/calendar/render?{q}"
+    if kind == "map" and a.get("query"):
+        return f"📍 {a.get('label') or a['query']}", f"https://www.google.com/maps/search/?api=1&query={quote(a['query'])}"
+    if kind == "call" and a.get("number"):
+        digits = "".join(ch for ch in str(a["number"]) if ch.isdigit() or ch == "+")
+        return f"📞 {a.get('label') or digits}", f"tel:{digits}"
+    return None
 
 
 def speak(c, text, lang, ref_audio, ref_text=None):
