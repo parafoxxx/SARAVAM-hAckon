@@ -2,6 +2,7 @@
 
 import hashlib
 import html
+import json
 import os
 import sys
 import time
@@ -10,6 +11,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # The Sarvam pipeline lives in api/_sarvam.py, shared with the serverless version.
 sys.path.insert(0, str(Path(__file__).with_name("api")))
@@ -305,6 +307,26 @@ if command:
             langs = [people[p][0] if people[p][0] != "Auto" else "Hindi" for p in ("A", "B")]
             ss.summary = sarvam.summarize(client, ss.turns, langs[0], langs[1], scenario)
         ss.share_now = command == "share"
+        if ss.share_now:
+            wa_url = "https://wa.me/?text=" + quote(f"Ek Awaaz · {SCENARIOS[scenario]} summary\n\n{ss.summary}")
+            st.link_button("📲 Open WhatsApp now", wa_url, type="primary", use_container_width=True)
+            # Try to open WhatsApp straight away. Browsers allow this only shortly after a tap (the mic tap),
+            # so the big button above stays as the fallback.
+            components.html(
+                f"""<script>
+                const url = {json.dumps(wa_url)};
+                let w = null;
+                try {{ w = window.open(url, "_blank"); }} catch (e) {{}}
+                if (!w) {{
+                  try {{
+                    const a = window.parent.document.createElement("a");
+                    a.href = url; a.target = "_blank"; a.rel = "noopener";
+                    window.parent.document.body.appendChild(a); a.click(); a.remove();
+                  }} catch (e) {{}}
+                }}
+                </script>""",
+                height=0,
+            )
 
 with st.expander("📄 Show a document: prescription, rent agreement, bank form", expanded=False):
     d1, d2, d3 = st.columns([1, 1, 1])
