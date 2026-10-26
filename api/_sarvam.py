@@ -127,6 +127,52 @@ def speak(c, text, lang, ref_audio, ref_text=None):
         return res.audios[0], False
 
 
+def read_document(c, file_bytes, filename, lang):
+    """Sarvam Document Intelligence (Sarvam Vision): PDF/PNG/JPG -> markdown text."""
+    import io
+    import tempfile
+    import zipfile
+
+    doc_lang = "or-IN" if lang == "Odia" else LANG_CODES.get(lang, "en-IN")
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, os.path.basename(filename) or "document.png")
+        with open(src, "wb") as f:
+            f.write(file_bytes)
+        job = c.document_intelligence.create_job(language=doc_lang, output_format="md")
+        job.upload_file(src)
+        job.start()
+        job.wait_until_complete(poll_interval=1.0, timeout=120)
+        out = job.download_output(os.path.join(tmp, "out.zip"))
+        with open(out, "rb") as f:
+            data = f.read()
+    if data[:2] == b"PK":
+        z = zipfile.ZipFile(io.BytesIO(data))
+        return "\n".join(z.read(n).decode("utf-8", "replace") for n in z.namelist() if n.endswith(".md")).strip()
+    return data.decode("utf-8", "replace").strip()
+
+
+def explain_document(c, text, tgt, scenario="general"):
+    """Sarvam-105B explains a document aloud to someone who can't read it. Returns (explanation, key_facts)."""
+    system = (
+        f"Someone in {SCENARIOS.get(scenario, SCENARIOS['general'])} has been handed the document below and "
+        f"cannot read it. Explain it to them in {tgt}, in simple spoken words, as if reading it out and "
+        "explaining it: what it is and exactly what they must do (every medicine, dose, timing, amount, date, "
+        "condition and warning). Do not add anything that is not in the document. At most 6 short sentences.\n"
+        f"Also list the critical facts as very short phrases in {tgt}.\n"
+        'Reply with JSON only: {"explanation": "...", "key_facts": ["..."]}'
+    )
+    res = c.chat.completions(
+        model="sarvam-105b-conversations",
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": text[:6000]}],
+    )
+    raw = (res.choices[0].message.content or "").strip()
+    try:
+        data = _parse_json(raw)
+        return data["explanation"].strip(), [str(f) for f in data.get("key_facts", [])][:5]
+    except Exception:
+        return raw, []
+
+
 SUMMARY_FOCUS = {
     "doctor": "Cover: symptoms, diagnosis, each medicine with dose and timing, warning signs, follow-up date.",
     "police": "Cover: what happened, when and where, people involved, what the police will do, reference numbers.",

@@ -251,6 +251,51 @@ for person, (lang, clip) in people.items():
     ss.latest = sarvam.b64decode(speech_b64)
     st.rerun()
 
+with st.expander("📄 Show a document: prescription, rent agreement, bank form", expanded=False):
+    d1, d2, d3 = st.columns([1, 1, 1])
+    giver = d1.radio("Who is handing it over?", ["A", "B"], index=1, horizontal=True,
+                     format_func=lambda p: f"Person {p}", key="doc_giver")
+    doc_lang = d2.selectbox("Document language", list(NATIVE), index=list(NATIVE).index("English"), key="doc_lang")
+    receiver = "B" if giver == "A" else "A"
+    receiver_lang = people[receiver][0]
+    d3.markdown(f"<br>Explained to **Person {receiver}** in **{receiver_lang if receiver_lang != 'Auto' else '…'}**",
+                unsafe_allow_html=True)
+    doc = st.file_uploader("Photo or PDF of the document", type=["png", "jpg", "jpeg", "pdf"],
+                           key=f"doc_{ss['round']}")
+    if doc and st.button(f"🔍 Read & explain to Person {receiver}", type="primary", use_container_width=True):
+        if receiver_lang == "Auto":
+            st.warning(f"Pick Person {receiver}'s language first.")
+        else:
+            with st.status(f"📄 Reading document → {receiver_lang}", expanded=True) as status:
+                try:
+                    t0 = time.time()
+                    text = sarvam.read_document(client, doc.getvalue(), doc.name, doc_lang)
+                    t1 = time.time()
+                    if not text:
+                        raise ValueError("No text found in the document. Try a clearer photo.")
+                    st.write(f"👁️ Sarvam Vision read the document ({t1 - t0:.1f}s)")
+                    explanation, facts = sarvam.explain_document(client, text, receiver_lang, scenario)
+                    t2 = time.time()
+                    st.write(f"🧠 Explained in {receiver_lang} ({t2 - t1:.1f}s)")
+                    ref_audio, ref_text = ss.voices.get(giver, (None, None))
+                    if ref_audio:
+                        speech_b64, cloned = sarvam.speak(client, explanation, receiver_lang, ref_audio, ref_text)
+                    else:
+                        res = client.text_to_speech.convert(text=explanation[:1500], language_code=sarvam.LANG_CODES[receiver_lang],
+                                                            model="bulbul:v3")
+                        speech_b64, cloned = res.audios[0], False
+                    t3 = time.time()
+                    status.update(label=f"📄 Document explained in {receiver_lang} · {t3 - t0:.1f}s", state="complete",
+                                  expanded=False)
+                except Exception as e:
+                    status.update(label=f"Couldn't read the document: {e}", state="error")
+                    st.stop()
+            ss.turns.append({"who": giver, "original": "📄 " + text[:400] + ("…" if len(text) > 400 else ""),
+                             "translated": explanation, "english": "", "facts": facts, "src": f"document ({doc_lang})",
+                             "tgt": receiver_lang, "cloned": cloned, "secs": t3 - t0})
+            ss.latest = sarvam.b64decode(speech_b64)
+            st.rerun()
+
 if ss.turns:
     last = ss.turns[-1]
     voice = f"in Person {last['who']}'s voice" if last["cloned"] else "standard voice"
