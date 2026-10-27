@@ -62,10 +62,10 @@ def translate(c, text, src, tgt, history, scenario="general"):
     Sarvam-105B writes the final translation using it plus the conversation context (for gender
     and pronouns). In testing each model alone dropped details the pair keeps.
 
-    Returns (translation, key_facts, english) where key_facts are short critical details in tgt."""
+    Returns (translation, key_facts, english, extras) where key_facts are short critical details in tgt."""
     english = english_reference(c, text, src)
     if tgt == "English" and english and not history:
-        return english, [], english
+        return english, [], english, NO_EXTRAS
     context = "\n".join(f"Person {t['who']} ({t['src']}): {t['original']}" for t in history[-6:])
     system = (
         f"You are a live interpreter in {SCENARIOS.get(scenario, SCENARIOS['general'])}. "
